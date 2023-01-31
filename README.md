@@ -63,13 +63,14 @@ sudo rm apache-zookeeper-3.7.1-bin.tar.gz
 sudo chown -R zookeeper:zookeeper /opt/zookeeper
 ```
 
-### 2.3 Configure Zookeeper Standalone mode
+### 2.3 Configure Zookeeper data folder and ports
 
 In the following file: /opt/zookeeper/conf/zoo.cfg
 
 Change the following parameters to avoid ports clashing with other ports running on EMR:
 
 ```
+# /opt/zookeeper/conf/zoo.cfg
 dataDir = /data/zookeeper
 clientPort = 20182
 admin.serverPort = 80082
@@ -80,6 +81,7 @@ admin.serverPort = 80082
 Create the following file: /etc/systemd/system/zookeeper.service and add the following to it:
 
 ```
+# /etc/systemd/system/zookeeper.service
 [Unit]
 Description=Zookeeper Daemon
 Documentation=http://zookeeper.apache.org
@@ -110,3 +112,91 @@ sudo systemctl enable zookeeper
 ```
 
 ## Step 3: Install Kafka
+
+### 3.1 Create Kafka User
+
+Create Kafka user. It's ok if username already exists
+
+```
+sudo useradd kafka -m
+```
+
+Add user to sudoers group:
+
+```
+sudo usermod -aG wheel kafka
+```
+
+Create Kafka logs folder and give write access to kafka user:
+
+```
+sudo mkdir -p /tmp/kafka-logs
+sudo chown -R kafka:kafka /tmp/kafka-logs
+```
+
+### 3.2 Install Kafka
+
+You can find the latest stable version of Kafka here: https://kafka.apache.org/downloads
+
+```
+cd /opt
+sudo wget https://downloads.apache.org/kafka/3.3.2/kafka_2.13-3.3.2.tgz
+sudo tar -xzf kafka_2.13-3.3.2.tgz
+sudo mv kafka_2.13-3.3.2 kafka
+sudo rm kafka_2.13-3.3.2.tgz
+sudo chown -R kafka:kafka /opt/kafka
+```
+
+### 3.3 Configure Kafka
+
+In the following file: /opt/kafka/config/zookeeper.properties, change the data folder and port as set up in step 2.3
+
+```
+# /opt/kafka/config/zookeeper.properties
+dataDir=/data/zookeeper
+clientPort=20182
+```
+
+In the following file: /opt/kafka/config/server.properties, change zookeeper connection details as setup in step 2.3
+
+```
+#/opt/kafka/config/server.properties
+
+zookeeper.connect=localhost:20182
+```
+
+### 3.4 Run Kafka as a service:
+
+Create the following file: /etc/systemd/system/kafka.service and add the following to it:
+
+```
+#/etc/systemd/system/kafka.service
+
+[Unit]
+Description=Kafka Daemon
+Documentation=https://kafka.apache.org/
+Requires=network.target
+After=network.target
+
+[Service]
+Type=forking
+WorkingDirectory=/opt/kafka
+User=kafka
+Group=kafka
+ExecStart=/opt/kafka/bin/kafka-server-start.sh -daemon /opt/kafka/config/server.properties
+ExecStop=/opt/zookeeper/bin/kafka-server-stop.sh
+ExecReload=/opt/zookeeper/bin/kafka-server-stop.sh && /opt/kafka/bin/kafka-server-start.sh -daemon /opt/kafka/config/server.properties
+TimeoutSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+Enable and start the service:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl start kafka
+sudo systemctl enable kafka
+```
