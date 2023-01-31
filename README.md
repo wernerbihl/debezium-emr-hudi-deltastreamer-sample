@@ -170,7 +170,7 @@ zookeeper.connect=localhost:20182
 Create the following file: /etc/systemd/system/kafka.service and add the following to it:
 
 ```
-#/etc/systemd/system/kafka.service
+# /etc/systemd/system/kafka.service
 
 [Unit]
 Description=Kafka Daemon
@@ -200,3 +200,41 @@ sudo systemctl daemon-reload
 sudo systemctl start kafka
 sudo systemctl enable kafka
 ```
+
+## Step 4: Setup Kafka Connect
+
+Add a folder where we will download our Debezium and possibly other Kafka connectors:
+
+```
+sudo mkdir /opt/kafka/connectors
+```
+
+In this file: /opt/kafka/config/connect-standalone.properties change your plugin.path (at the bottom of file) and make sure it's uncommented:
+
+```
+# /opt/kafka/config/connect-standalone.properties
+
+plugin.path=/opt/kafka/connectors
+```
+
+You can get a list of connectors from: https://debezium.io/documentation/reference/stable/install.html. Only install what you need
+
+<details>
+  <summary>MySQL Connector</summary>
+  ```
+  cd /opt/kafka/connectors
+  sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.1.2.Final/debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+  sudo tar -xzf debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+  sudo rm debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+  ```
+</details>
+
+<details>
+  <summary>Postgres Connector</summary>
+  ```
+  cd /opt/kafka/connectors
+  sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.1.2.Final/debezium-connector-postgres-2.1.2.Final-plugin.tar.gz -P /opt/kafka/connectors/
+  sudo tar -xzf debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
+  sudo rm debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
+  ```
+</details>
