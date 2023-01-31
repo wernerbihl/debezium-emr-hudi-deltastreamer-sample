@@ -217,7 +217,9 @@ In this file: /opt/kafka/config/connect-standalone.properties change your plugin
 plugin.path=/opt/kafka/connectors
 ```
 
-You can get a list of connectors from: https://debezium.io/documentation/reference/stable/install.html. Only install what you need
+### 4.1 Select your database connector and follow instructions:
+
+You can get a list of connectors from: https://debezium.io/documentation/reference/stable/install.html. Only install what you need. The rest of the tutorial will assume you've installed the Postgres Connector.
 
 <details>
   <summary>MySQL Connector</summary>
@@ -229,6 +231,8 @@ sudo tar -xzf debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
 sudo rm debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
 ```
 
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/mysql.html
+
 </details>
 
 <details>
@@ -236,9 +240,127 @@ sudo rm debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
 
 ```
 cd /opt/kafka/connectors
-sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.1.2.Final/debezium-connector-postgres-2.1.2.Final-plugin.tar.gz -P /opt/kafka/connectors/
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.1.2.Final/debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
 sudo tar -xzf debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
 sudo rm debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
 ```
 
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/postgresql.html
+
 </details>
+
+<details>
+  <summary>MongoDB Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-mongodb/2.1.2.Final/debezium-connector-mongodb-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-mongodb-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-mongodb-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/mongodb.html
+
+</details>
+
+<details>
+  <summary>SQL Server Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-sqlserver/2.1.2.Final/debezium-connector-sqlserver-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-sqlserver-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-sqlserver-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/sqlserver.html
+
+</details>
+
+<details>
+  <summary>Oracle Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-oracle/2.1.2.Final/debezium-connector-oracle-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-oracle-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-oracle-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/oracle.html
+
+</details>
+
+<details>
+  <summary>DB2 Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-db2/2.1.2.Final/debezium-connector-db2-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-db2-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-db2-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/db2.html
+
+</details>
+
+<details>
+  <summary>Cassandra 3.x Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-cassandra/2.1.2.Final/debezium-connector-cassandra-3-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-cassandra-3-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-cassandra-3-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/cassandra.html
+
+</details>
+
+<details>
+  <summary>Cassandra 4.x Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-cassandra/2.1.2.Final/debezium-connector-cassandra-4-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-cassandra-4-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-cassandra-4-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/cassandra.html
+
+</details>
+
+<details>
+  <summary>Vitess Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-vitess/2.1.2.Final/debezium-connector-vitess-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-vitess-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-vitess-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/vitess.html
+
+</details>
+
+<details>
+  <summary>Spanner Connector</summary>
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-spanner/2.1.2.Final/debezium-connector-spanner-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-spanner-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-spanner-2.1.2.Final-plugin.tar.gz
+```
+
+Full configuration options are available here (Not necessary for tutorial, but useful): https://debezium.io/documentation/reference/stable/connectors/spanner.html
+
+</details>
+
+## Step 5: Setup Example Postgres Database
+
+For this tutorial, we'll create a simple postgres database on Railway:
