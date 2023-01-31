@@ -221,20 +221,24 @@ You can get a list of connectors from: https://debezium.io/documentation/referen
 
 <details>
   <summary>MySQL Connector</summary>
-  ```
-  cd /opt/kafka/connectors
-  sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.1.2.Final/debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
-  sudo tar -xzf debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
-  sudo rm debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
-  ```
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.1.2.Final/debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+sudo tar -xzf debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-mysql-2.1.2.Final-plugin.tar.gz
+```
+
 </details>
 
 <details>
   <summary>Postgres Connector</summary>
-  ```
-  cd /opt/kafka/connectors
-  sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.1.2.Final/debezium-connector-postgres-2.1.2.Final-plugin.tar.gz -P /opt/kafka/connectors/
-  sudo tar -xzf debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
-  sudo rm debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
-  ```
+
+```
+cd /opt/kafka/connectors
+sudo wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.1.2.Final/debezium-connector-postgres-2.1.2.Final-plugin.tar.gz -P /opt/kafka/connectors/
+sudo tar -xzf debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
+sudo rm debezium-connector-postgres-2.1.2.Final-plugin.tar.gz
+```
+
 </details>
