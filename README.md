@@ -136,7 +136,7 @@ sudo chown -R kafka:kafka /tmp/kafka-logs
 
 ### 3.2 Install Kafka
 
-You can find the latest stable version of Kafka here: https://kafka.apache.org/downloads
+You can find the latest stable version of Kafka here: https://kafka.apache.org/downloads (Make sure to select one of the binary downloads with the latest version of Scala)
 
 ```
 cd /opt
@@ -184,8 +184,8 @@ WorkingDirectory=/opt/kafka
 User=kafka
 Group=kafka
 ExecStart=/opt/kafka/bin/kafka-server-start.sh -daemon /opt/kafka/config/server.properties
-ExecStop=/opt/zookeeper/bin/kafka-server-stop.sh
-ExecReload=/opt/zookeeper/bin/kafka-server-stop.sh && /opt/kafka/bin/kafka-server-start.sh -daemon /opt/kafka/config/server.properties
+ExecStop=/opt/kafka/bin/kafka-server-stop.sh
+ExecReload=/opt/kafka/bin/kafka-server-stop.sh && /opt/kafka/bin/kafka-server-start.sh -daemon /opt/kafka/config/server.properties
 TimeoutSec=30
 Restart=on-failure
 
@@ -206,7 +206,7 @@ sudo systemctl enable kafka
 Add a folder where we will download our Debezium and possibly other Kafka connectors:
 
 ```
-sudo mkdir /opt/kafka/connectors
+sudo mkdir -p /opt/kafka/connectors
 ```
 
 In this file: /opt/kafka/config/connect-standalone.properties change your plugin.path (at the bottom of file) and make sure it's uncommented:
@@ -363,4 +363,12 @@ Full configuration options are available here (Not necessary for tutorial, but u
 
 ## Step 5: Setup Example Postgres Database
 
-For this tutorial, we'll create a simple postgres database on Railway:
+For this tutorial, we'll create a simple Postgres database on Railway (because it's free), but you are free to use RDS or any other database provider service.
+
+1. Go to https://railway.app/ and signup/login
+2. Create a new project and choose "Provision PostgreSQL"
+3. Once Postgres service has started, click on it, select the "Connect" tab
+4. Click on "show" next to the available variables and jot down the DATABASE_URL etc. for later
+5. Click back to the "Data" tab, and create a new table called "employees". We'll populate this table with sample data that we'll stream in real-time. Here's the table setup:
+
+![Preview](https://raw.githubusercontent.com/wernerbihl/debezium-emr-hudi-deltastreamer-sample/master/table_structure.png)
