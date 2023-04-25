@@ -201,7 +201,9 @@ sudo systemctl start kafka
 sudo systemctl enable kafka
 ```
 
-## Step 4: Setup Kafka Connect
+## Step 4: Setup Kafka Connect and add Debezium Connector
+
+### 4.1 Configure Kafka Connect
 
 Add a folder where we will download our Debezium and possibly other Kafka connectors:
 
@@ -209,15 +211,20 @@ Add a folder where we will download our Debezium and possibly other Kafka connec
 sudo mkdir -p /opt/kafka/connectors
 ```
 
-In this file: /opt/kafka/config/connect-standalone.properties change your plugin.path (at the bottom of file) and make sure it's uncommented:
+In these files:
 
 ```
-# /opt/kafka/config/connect-standalone.properties
+/opt/kafka/config/connect-standalone.properties
+/opt/kafka/config/connect-distributed.properties
+```
 
+change your plugin.path (at the bottom of file) and make sure it's uncommented:
+
+```
 plugin.path=/opt/kafka/connectors
 ```
 
-### 4.1 Select your database connector and follow instructions:
+### 4.2 Select your database connector and follow instructions:
 
 You can get a list of connectors from: https://debezium.io/documentation/reference/stable/install.html. Only install what you need. The rest of the tutorial will assume you've installed the Postgres Connector.
 
@@ -361,6 +368,60 @@ Full configuration options are available here (Not necessary for tutorial, but u
 
 </details>
 
+### 4.3 Create Kafka Connect Service
+
+Create the following file: /etc/systemd/system/kafka-connect.service and add the following to it:
+
+```
+# /etc/systemd/system/kafka-connect.service
+
+[Unit]
+Description=Kafka-Connect Daemon
+Documentation=https://kafka.apache.org/
+Requires=network.target
+After=network.target
+
+[Service]
+Type=forking
+WorkingDirectory=/opt/kafka
+User=kafka
+Group=kafka
+ExecStart=/opt/kafka/bin/connect-standalone.sh -daemon /opt/kafka/config/connect-standalone.properties
+ExecStop=/opt/kafka/bin/kafka-server-stop.sh
+ExecReload=/opt/kafka/bin/kafka-server-stop.sh && /opt/kafka/bin/connect-standalone.sh -daemon /opt/kafka/config/connect-standalone.properties
+TimeoutSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+Enable and start the service:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl start kafka-connect
+sudo systemctl enable kafka-connect
+```
+
+### 4.4 Check that the service is running
+
+Execute the following command to get the Kafka version:
+
+```
+curl localhost:8083/ | jq
+```
+
+You should get a response like this:
+
+```
+{
+  "version": "3.4.0",
+  "commit": "2e1947d240607d53",
+  "kafka_cluster_id": "A2eqoTkDR86Uyd5656wpVg"
+}
+```
+
 ## Step 5: Setup Example Postgres Database
 
 For this tutorial, we'll create a simple Postgres database on Railway (because it's free), but you are free to use RDS or any other database provider service.
@@ -372,3 +433,116 @@ For this tutorial, we'll create a simple Postgres database on Railway (because i
 5. Click back to the "Data" tab, and create a new table called "employees". We'll populate this table with sample data that we'll stream in real-time. Here's the table setup:
 
 ![Preview](https://raw.githubusercontent.com/wernerbihl/debezium-emr-hudi-deltastreamer-sample/master/table_structure.png)
+
+## Step 6: Script to populate database
+
+In the real world, we'll have external apps interacting with a database, but for now we're just going to create a super simple fake data generator that writes to this database so that we can test real-time syncing. You can run this script from any server capable of connecting to the database. This script is in this repo (generator.py)
+
+> We are using psycopg2-binary here, which is easier to install and fine for development, but please consider properly installing psycopg2 in production. More info here: https://www.psycopg.org/docs/install.html#psycopg-vs-psycopg-binary
+
+```
+pip3 install psycopg2-binary
+pip3 install faker
+```
+
+```python
+# generator.py
+import psycopg2
+from faker import Faker
+
+fake = Faker()
+
+try:
+  # 1. Postgres Connection
+  ###################################################
+
+  conn = psycopg2.connect(
+    host="containers-us-west-67.railway.app",
+    port="5460",
+    database="railway",
+    user="postgres",
+    password="Pi5YIuace0fRq75yPGXq"
+  )
+
+  cur = conn.cursor()
+
+  # 2. Create fake data and insert into Postgres
+  ###################################################
+  def generate_data(amount):
+
+    for _ in range(amount):
+      data = (
+        fake.name(),
+        fake.ascii_company_email(),
+        fake.phone_number(),
+        fake.random_element(elements=('IT', 'HR', 'Sales', 'Marketing')),
+        fake.random_int(min=10000, max=150000),
+        fake.date()
+      )
+
+      cur.execute('INSERT INTO employees (full_name, email, phone, department, salary, created_at) VALUES (%s,%s,%s,%s,%s,%s)', data)
+
+      print('INSERTED', data)
+
+    conn.commit()
+
+  generate_data(5)
+
+except (Exception, psycopg2.DatabaseError) as error:
+  print(error)
+finally:
+  if conn is not None:
+    conn.close()
+```
+
+Now every time, you want to insert some records into Postgres, you can just run:
+
+```
+python3 generator.py
+```
+
+Do that now to confirm that everything is working.
+
+## Step 7: Connect Debezium to Database
+
+Now we can use the Kafka Connect Rest API to create a new connector. Change your Postgres settings according to the server you have set up in step 5:
+
+```
+curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{
+  "name": "employees-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "xxxxxxx",
+    "database.port": "5460",
+    "database.user": "postgres",
+    "database.password": "xxxxxxxx",
+    "database.dbname" : "railway",
+    "topic.prefix": "employees",
+    "table.include.list": "public.employees"
+  }
+}'
+```
+
+## Troubleshooting
+
+### Check if Zookeeper is running
+
+The easiest way is to just telnet to the port you have configured for zookeeper, and then run "srvr". If Zookeeper is running, you'll see output like this:
+
+```
+> telnet localhost 2181
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+srvr
+Zookeeper version: 3.5.10--1, built on 02/21/2023 18:26 GMT
+Latency min/avg/max: 0/0/7
+Received: 4598
+Sent: 4599
+Connections: 3
+Outstanding: 0
+Zxid: 0x1e
+Mode: standalone
+Node count: 28
+Connection closed by foreign host.
+```
