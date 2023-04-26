@@ -206,7 +206,7 @@ query = kafka_df.writeStream \
 Then run the script with:
 
 ```
-clear && spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 script.py
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 script.py
 ```
 
 ## Step 8: Productionize by adding steps to EMR cluster
@@ -230,3 +230,120 @@ JAR location: command-runner.jar
 Arguments: spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 /home/hadoop/script.py
 
 Please review each argument and make sure you understand each one before adding the steps and adapt it to your needs. You can add additional steps for additional Debezium Connectors.
+
+## (Optional) Step 9: Use Hudi Delta Streamer to record updates/deletes etc.
+
+Follow the same steps as "Step 6: Set up debezium connection between Postgres and Kafka" and create a new folder. I'm calling mine /home/hadoop/debezium-test2. Change your conf/application.properties to the following:
+
+```
+debezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector
+debezium.source.offset.storage.file.filename=./data/offsets.dat
+debezium.source.offset.flush.interval.ms=1000
+debezium.source.database.hostname=containers-us-west-180.railway.app
+debezium.source.database.port=7866
+debezium.source.database.user=xxxx
+debezium.source.database.password=xxxx
+debezium.source.database.dbname=railway
+debezium.source.topic.prefix=debezium1
+debezium.source.table.include.list=public.employees
+debezium.source.plugin.name=pgoutput
+debezium.source.database.encrypt=false
+
+debezium.sink.type=kafka
+debezium.sink.kafka.producer.key.serializer=org.apache.kafka.common.serialization.StringSerializer
+debezium.sink.kafka.producer.value.serializer=org.apache.kafka.common.serialization.StringSerializer
+debezium.sink.kafka.producer.bootstrap.servers=b-1.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092,b-3.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092,b-2.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092
+debezium.sink.kafka.producer.security.protocol=PLAINTEXT
+
+quarkus.log.console.json=false
+
+tombstones.on.delete=false
+publication.autocreate.mode=filtered
+debezium.sink.kafka.producer.key.converter=io.confluent.connect.avro.AvroConverter
+debezium.sink.kafka.producer.value.converter=io.confluent.connect.avro.AvroConverter
+```
+
+When you're happy, then run the debezium connector:
+
+```
+cd /home/hadoop/debezium-test2
+./run.sh
+```
+
+> Ensure this EMR instance profile's IAM policy has access to Glue Catalogs!
+
+Then create a hudi script to do the ingestion, I've placed mine at /home/hadoop/hudi_script.py.
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+
+spark = SparkSession \
+  .builder \
+  .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+  .config("spark.sql.hive.convertMetastoreParquet", "false") \
+  .getOrCreate()
+spark.sparkContext.setLogLevel("WARN")
+
+database_name = "hudi"
+table_name = "hudi_out"
+checkpoint_location = 's3://oml-dp-debezium-datalabs/checkpoints_hudi/'
+out_path = "s3://oml-dp-debezium-datalabs/output_hudi/"
+prefix = 'debezium1'
+kafka_topic = f'{prefix}.public.employees'
+
+hudi_streaming_options = {
+  'hoodie.table.name': table_name,
+  'hoodie.database.name': database_name,
+  'hoodie.datasource.hive_sync.database': database_name,
+  'hoodie.datasource.hive_sync.table': table_name,
+  'hoodie.datasource.write.table.type': 'COPY_ON_WRITE',
+  'hoodie.datasource.write.operation': 'upsert',
+  'hoodie.datasource.hive_sync.create_managed_table': 'true',
+  'hoodie.datasource.hive_sync.enable': 'true',
+  'hoodie.datasource.hive_sync.mode': 'hms',
+  'hoodie.datasource.write.recordkey.field': 'timestamp',
+  'hoodie.datasource.write.precombine.field': 'timestamp',
+  'hoodie.datasource.write.hive_style_partitioning': 'true',
+  'hoodie.datasource.write.reconcile.schema': 'true',
+  'hoodie.deltastreamer.source.kafka.value.deserializer.class': 'io.confluent.kafka.serializers.KafkaAvroDeserializer',
+  'hoodie.deltastreamer.source.kafka.topic': kafka_topic,
+  'hoodie.datasource.hive_sync.partition_extractor_class': 'org.apache.hudi.hive.MultiPartKeysValueExtractor',
+  'auto.offset.reset': 'earliest'
+}
+
+# ----------------------------------------------------------------------------------------
+# Read stream and do transformations
+# -----------------------------------------------------------------------------------------
+
+def process(df, batch_id):
+  schema = spark.read.json(df.rdd.map(lambda row: row.value)).schema
+
+  df = df \
+    .withColumn('json', from_json(col("value"), schema)) \
+    .withColumn('id', col("json.payload.after.id")) \
+    .withColumn('full_name', col("json.payload.after.full_name")) \
+    .drop('json', 'value')
+
+  df.show(vertical=True, truncate=False)
+  df.write.mode('append').parquet(out_path)
+
+df = spark.readStream.format("kafka") \
+  .option("kafka.bootstrap.servers", "b-1.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092,b-3.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092,b-2.debeziummsk.d1e4h8.c6.kafka.eu-west-1.amazonaws.com:9092") \
+  .option("subscribePattern", f"{prefix}.*") \
+  .load() \
+  .selectExpr("timestamp", "CAST(value AS STRING)")
+
+df.writeStream.format("hudi") \
+    .options(**hudi_streaming_options) \
+    .option("checkpointLocation", checkpoint_location) \
+    .foreachBatch(process) \
+    .start() \
+    .awaitTermination()
+```
+
+And then run it like before, but with the additional hudi packages. You can also run this as a step instead.
+
+```
+clear && spark-submit --jars /usr/lib/hudi/hudi-spark-bundle.jar --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1,org.apache.spark:spark-avro_2.13:3.3.1 --class org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer hudi_script.py --source-class org.apache.hudi.utilities.sources.debezium.PostgresDebeziumSource --source-ordering-field _event_lsn --payload-class org.apache.hudi.common.model.debezium.PostgresDebeziumAvroPayload
+```
